@@ -11,7 +11,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#060810;--surf:rgba(9,13,26,.95);--rep:#2196f3;--sep:#e53935;--gold:#ffb300;--ok:#43a047;--t1:#e8edf4;--t2:#8fa3b8;--t3:#3d5466;--b1:rgba(255,255,255,.07);--r:4px;--r2:8px}
 body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--t1);overflow:hidden;width:100vw;height:100vh}
-#game-canvas{position:fixed;top:0;left:0}
+#game-wrap canvas{position:fixed;top:0;left:0}
 
 /* HEADER */
 #hdr{position:fixed;top:0;left:0;right:0;height:48px;background:linear-gradient(180deg,rgba(6,8,16,.98),rgba(6,8,16,.8));border-bottom:1px solid var(--b1);display:flex;align-items:center;z-index:100;backdrop-filter:blur(12px)}
@@ -82,7 +82,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--t1);over
 </head>
 <body>
 
-<canvas id="game-canvas"></canvas>
+<div id="game-wrap" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1"></div>
 
 <!-- HEADER -->
 <header id="hdr">
@@ -138,6 +138,7 @@ const socket = io();
 let G = null;
 let scene = null;
 let selectedPlanet = null;
+let _stateReady = false; // G arrived before scene was ready
 
 const ic = (o, s=16) => o?.image
   ? `<img src="${o.image}" style="width:${s}px;height:${s}px;border-radius:3px;object-fit:cover">`
@@ -155,8 +156,8 @@ socket.on('disconnect', () => {
 });
 socket.on('state', s => {
   G = s;
-  if (!scene) initPhaser();
-  else scene.onStateUpdate();
+  if (scene) scene.onStateUpdate();
+  else _stateReady = true; // Phaser not ready yet, create() will pick it up
   updateHUD();
 });
 socket.on('state_delta', delta => {
@@ -274,13 +275,16 @@ const V = {
   rv() { scene?.cameras.main.zoom = 1; scene?.cameras.main.centerOn(G.settings.mapW / 2, G.settings.mapH / 2); scene?.updateMiniVP(); }
 };
 
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('load', initPhaser);
+
 // ─── PHASER 3 ────────────────────────────────────────────────────────────────
 function initPhaser() {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     width: window.innerWidth,
     height: window.innerHeight,
-    canvas: document.getElementById('game-canvas'),
+    parent: 'game-wrap',
     backgroundColor: '#060810',
     scene: { preload: () => {}, create, update }
   });
@@ -334,6 +338,14 @@ function initPhaser() {
     this.updateMiniVP = updateMiniVP.bind(this);
     this.onStateUpdate = onStateUpdate.bind(this);
     this.updateFleets  = updateFleets.bind(this);
+
+    // State may have arrived before Phaser was ready
+    if (G && _stateReady) {
+      this.onStateUpdate();
+    } else if (!G) {
+      // Show loading message until state arrives
+      console.log('Waiting for server state...');
+    }
     this.onStateUpdate();
 
     window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
@@ -361,6 +373,7 @@ function initPhaser() {
   }
 
   function onStateUpdate() {
+    if (!G) return;
     drawTerritories.call(this);
     drawHyperlanes.call(this);
     drawPlanets.call(this);
