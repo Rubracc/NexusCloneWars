@@ -17,7 +17,7 @@
 }
 body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--t1);overflow:hidden;width:100vw;height:100vh}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--b1);border-radius:2px}
-#game-canvas{position:fixed;top:0;left:0;z-index:1}
+#game-wrap canvas{position:fixed;top:0;left:0;z-index:1}
 
 /* AUTH SCREEN */
 #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
@@ -169,7 +169,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--t1);over
 
 <!-- MAIN UI (hidden until auth) -->
 <div id="main-ui" style="display:none">
-  <canvas id="game-canvas"></canvas>
+  <div id="game-wrap" style="position:fixed;top:0;left:0;width:calc(100vw - 340px);height:100vh;z-index:1"></div>
 
   <!-- HEADER -->
   <header id="hdr">
@@ -719,17 +719,15 @@ const A = {
 
 // ─── PHASER 3 SCENE ────────────────────────────────────────────────────────────
 function initPhaser() {
-  const W = window.innerWidth - 340; // minus panel
+  const W = window.innerWidth - 340;
   const H = window.innerHeight;
 
   const config = {
     type: Phaser.AUTO,
     width: W, height: H,
-    canvas: document.getElementById('game-canvas'),
+    parent: 'game-wrap',
     backgroundColor: '#060810',
-    scene: {
-      preload, create, update
-    }
+    scene: { preload, create, update }
   };
 
   const game = new Phaser.Game(config);
@@ -738,12 +736,11 @@ function initPhaser() {
 
   function create() {
     scene = this;
-    this._planets    = {};  // Phaser GameObjects per planet
-    this._hyperlanes = [];  // Graphics lines
-    this._fleetObjs  = {};  // Moving fleet icons
+    this._planets    = {};
+    this._hyperlanes = [];
+    this._fleetObjs  = {};
     this._miniPlanets= [];
 
-    // Camera
     this.cameras.main.setBounds(0, 0, G.settings.mapW, G.settings.mapH);
     this.cameras.main.setZoom(1);
     this.cameras.main.centerOn(G.settings.mapW / 2, G.settings.mapH / 2);
@@ -1107,7 +1104,7 @@ function initPhaser() {
   function hideTooltip() { clearTimeout(_ttTimeout); }
 
   // Ctrl+click for new planet
-  document.getElementById('game-canvas').addEventListener('click', e => {
+  document.getElementById('game-wrap').addEventListener('click', e => {
     if (!e.ctrlKey || !scene) return;
     const cam   = scene.cameras.main;
     const rect  = e.currentTarget.getBoundingClientRect();
